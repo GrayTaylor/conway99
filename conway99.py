@@ -259,7 +259,7 @@ def are_equivalent(mat1, mat2):
     return np.all(mat1_reduced == mat2_reduced)
 
 
-def reduce_mod_equivalence(candidates, verbose=False):
+def reduce_mod_equivalence_old(candidates, verbose=False):
     worklist = [m for m in candidates]
     replist = []
     while len(worklist) > 0:
@@ -273,3 +273,19 @@ def reduce_mod_equivalence(candidates, verbose=False):
         print('\t{} candidates, {} representatives'.format(len(worklist),
                                                            len(replist)))
     return replist
+
+
+def reduce_mod_equivalence(candidates, verbose=False):
+    reps = []
+    reduced_reps = []
+    for k in range(len(candidates)):
+        cand = candidates[k]
+        tr = oapackage.reduceGraphNauty(cand, verbose=0)
+        tri = inverse_permutation(tr)
+        cand_reduced = oapackage.transformGraphMatrix(cand, tri)
+        if not any(np.array_equal(cand_reduced, c) for c in reduced_reps):
+            reduced_reps.append(cand_reduced)
+            reps.append(cand)
+            if verbose:
+                print('\t{} reps for {} candidates'.format(len(reps), k + 1))
+    return reps
