@@ -6,9 +6,10 @@ from datetime import datetime as dt
 # Template building
 
 
-def get_supermatrix_template(adj, forced_edge=None):
+def get_supermatrix_template_first_unsat(adj, forced_edge=None):
     # Given a graph, return template for a graph with an additional vertex
     # This vertex is forced to neighbour the first unsaturated vertex of input
+    # Optionally, specify an additional edge to be included (e.g. for fanblade)
     order = len(adj) + 1
     supermatrix = np.empty((order, order), dtype='int')
 
@@ -36,6 +37,43 @@ def get_supermatrix_template(adj, forced_edge=None):
     if forced_edge is not None:
         supermatrix[forced_edge[0], forced_edge[1]] = 1
         supermatrix[forced_edge[1], forced_edge[0]] = 1
+
+    return supermatrix
+
+
+def get_supermatrix_template_greedy_sat(adj):
+    # Given a graph, return template for a graph with an additional vertex
+    # This vertex is forced to neighbour a vertex of greatest degree,
+    # amongst the unsaturated vertices of the input
+
+    order = len(adj) + 1
+    supermatrix = np.empty((order, order), dtype='int')
+
+    # copy known input structure
+    for i in range(order - 1):
+        for j in range(order - 1):
+            supermatrix[i, j] = adj[i, j]
+
+    # identify edge to force
+    target_degree = highest_nonmaximal_degree(adj)
+    current_degrees = vertex_degrees(adj)
+    v = 0
+    while current_degrees[v] < target_degree or current_degrees[v] == 14:
+        v += 1
+
+    # determine conditions, if any, for adjacency to input vertices
+    for i in range(order - 1):
+        if is_saturated_vertex(i, adj):
+            nhbr_i = 0
+        elif i == v:
+            nhbr_i = 1
+        else:
+            nhbr_i = 2
+        supermatrix[order - 1, i] = nhbr_i
+        supermatrix[i, order - 1] = nhbr_i
+
+    # new vertex cannot self-neighbour
+    supermatrix[order - 1, order - 1] = 0
 
     return supermatrix
 
@@ -99,6 +137,10 @@ def first_saturated_vertex(adj, max_degree=14):
         if sum([x for x in adj[i] if x == 1]) == max_degree:
             return i
     return None
+
+
+def highest_nonmaximal_degree(adj, max_degree=14):
+    return max([v for v in vertex_degrees(adj) if v < max_degree])
 
 
 # SRG conditions (defaults to SRG(99,14,1,2) case)
@@ -222,9 +264,25 @@ def templates_to_valid_graphs(seed_templates, verbose=0):
     return valid_soln
 
 
-def find_valid_supergraphs(seed_matrices, forced_edge=None):
+def find_valid_supergraphs_first_unsat(seed_matrices, forced_edge=None):
 
-    templates = [get_supermatrix_template(adj, forced_edge)
+    templates = [get_supermatrix_template_first_unsat(adj, forced_edge)
+                 for adj in seed_matrices]
+    print('{}: {} seed templates generated'.format(dt.now(), len(templates)))
+
+    valid_supergraphs = templates_to_valid_graphs(templates)
+    print('{}: {} valid graphs from templates'.format(dt.now(),
+                                                      len(valid_supergraphs)))
+
+    supergraph_reps = reduce_mod_equivalence(valid_supergraphs, verbose=True)
+    print('{}: Reduced to {} representatives'.format(dt.now(),
+                                                     len(supergraph_reps)))
+    return supergraph_reps
+
+
+def find_valid_supergraphs_greedy_sat(seed_matrices):
+
+    templates = [get_supermatrix_template_greedy_sat(adj)
                  for adj in seed_matrices]
     print('{}: {} seed templates generated'.format(dt.now(), len(templates)))
 
