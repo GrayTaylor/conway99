@@ -6,9 +6,10 @@ from datetime import datetime as dt
 # Template building
 
 
-def get_supermatrix_template(adj, forced_edge=None):
+def get_supermatrix_template(adj, forced_edges=None):
     # Given a graph, return template for a graph with an additional vertex
-    # This vertex is forced to neighbour the first unsaturated vertex of input
+    # Recognise saturated vertices can't have new neighbours
+    # Optionally, also force some edges
     order = len(adj) + 1
     supermatrix = np.empty((order, order), dtype='int')
 
@@ -24,18 +25,16 @@ def get_supermatrix_template(adj, forced_edge=None):
         supermatrix[order - 1, i] = 0
         supermatrix[i, order - 1] = 0
 
-    supermatrix[order - 1, first_unsat] = 1
-    supermatrix[first_unsat, order - 1] = 1
-
-    for i in range(first_unsat + 1, order - 1):
+    for i in range(first_unsat, order - 1):
         supermatrix[order - 1, i] = 2
         supermatrix[i, order - 1] = 2
 
     supermatrix[order - 1, order - 1] = 0
 
-    if forced_edge is not None:
-        supermatrix[forced_edge[0], forced_edge[1]] = 1
-        supermatrix[forced_edge[1], forced_edge[0]] = 1
+    if forced_edges is not None:
+        for e in forced_edges:
+            supermatrix[e[0], e[1]] = 1
+            supermatrix[e[1], e[0]] = 1
 
     return supermatrix
 
@@ -222,9 +221,9 @@ def templates_to_valid_graphs(seed_templates, verbose=0):
     return valid_soln
 
 
-def find_valid_supergraphs(seed_matrices, forced_edge=None):
+def find_valid_supergraphs(seed_matrices, forced_edges=None, verbose=True):
 
-    templates = [get_supermatrix_template(adj, forced_edge)
+    templates = [get_supermatrix_template(adj, forced_edges)
                  for adj in seed_matrices]
     print('{}: {} seed templates generated'.format(dt.now(), len(templates)))
 
@@ -232,7 +231,7 @@ def find_valid_supergraphs(seed_matrices, forced_edge=None):
     print('{}: {} valid graphs from templates'.format(dt.now(),
                                                       len(valid_supergraphs)))
 
-    supergraph_reps = reduce_mod_equivalence(valid_supergraphs, verbose=True)
+    supergraph_reps = reduce_mod_equivalence(valid_supergraphs, verbose)
     print('{}: Reduced to {} representatives'.format(dt.now(),
                                                      len(supergraph_reps)))
     return supergraph_reps
