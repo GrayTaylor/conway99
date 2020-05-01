@@ -15,25 +15,25 @@ def get_supermatrix_template(adj, forced_edges=None, forced_non_edges=None):
 
     supermatrix[0:order-1, 0:order-1] = adj
 
-    first_unsat = 0
-    while is_saturated_vertex(first_unsat, adj):
-        first_unsat += 1
+    # cannot neighbour an already saturated vertex
+    for i in range(order - 1):
+        if is_saturated_vertex(i, adj):
+            nhbr_i = 0
+        else:
+            nhbr_i = 2
+        supermatrix[order - 1, i] = nhbr_i
+        supermatrix[i, order - 1] = nhbr_i
 
-    for i in range(first_unsat):
-        supermatrix[order - 1, i] = 0
-        supermatrix[i, order - 1] = 0
-
-    for i in range(first_unsat, order - 1):
-        supermatrix[order - 1, i] = 2
-        supermatrix[i, order - 1] = 2
-
+    # cannot self-neighbour!
     supermatrix[order - 1, order - 1] = 0
 
+    # apply specified edges
     if forced_edges is not None:
         for e in forced_edges:
             supermatrix[e[0], e[1]] = 1
             supermatrix[e[1], e[0]] = 1
 
+    # apply specified non-edges
     if forced_non_edges is not None:
         for e in forced_non_edges:
             supermatrix[e[0], e[1]] = 0
@@ -309,3 +309,109 @@ def reduce_mod_equivalence(candidates, verbose=False):
             if verbose:
                 print('\t{} reps for {} candidates'.format(len(reps), k + 1))
     return reps
+
+
+# Refine to special case of a supergraph of a known subgraph
+# Here most adjacency is already known, so can save on recompute
+
+def mutual_neighbours_supergraph(i, j, adj, subgraph_mutuals):
+    new_v = len(adj) - 1
+    if i == new_v or j == new_v:
+        return mutual_neighbours(i, j, adj)
+    else:
+        mutuals = [v for v in subgraph_mutuals[i, j]]
+        if adj[i, new_v] == 1 and adj[j, new_v] == 1:
+            mutuals.append(new_v)
+        return mutuals
+
+
+def lambda_compatible_supergraph(adj, subgraph_mutuals, lmbda=1):
+    # Compatibility is for a subgraph, so bound rather than equality
+    for i in range(len(adj)):
+        for j in range(i+1, len(adj)):
+            if adj[i, j] == 1 and len(mutual_neighbours_supergraph(i, j, adj, subgraph_mutuals)) > lmbda:
+                return False
+    return True
+
+
+def mu_compatible_supergraph(adj, subgraph_mutuals, mu=2):
+    # Compatibility is for a subgraph, so bound rather than equality
+    for i in range(len(adj)):
+        for j in range(i+1, len(adj)):
+            if adj[i, j] == 0 and len(mutual_neighbours_supergraph(i, j, adj, subgraph_mutuals)) > mu:
+                return False
+    return True
+
+
+def templates_to_valid_graphs_supergraph(seed_templates, verbose=0):
+    # For each template, populate unknowns with 0/1 values,
+    # Subject to lambda and mu compatibility throughout
+    # Then eliminate graphs that don't meet known adjacency requirements
+    # (this check cannot be performed on templates,
+    # as mutual neighbours not necessarily yet determined)
+
+    candidates = [a for a in seed_templates]
+    solutions = []
+
+    while len(candidates) > 0:
+        if verbose > 0:
+            print('Currently {} graphs, {} candidates'.format(len(solutions),
+                                                              len(candidates)))
+        current_candidate = candidates.pop()
+        adj0, adj1 = branches(current_candidate)
+
+        sub_order = len(current_candidate) - 1
+        subgraph_mutuals = np.empty((sub_order, sub_order), dtype='object')
+        for i in range(sub_order):
+            for j in range(sub_order):
+                subgraph_mutuals[i, j] = mutual_neighbours(i, j, current_candidate[:sub_order, :sub_order])
+
+        if lambda_compatible_supergraph(adj0, subgraph_mutuals) and mu_compatible_supergraph(adj0, subgraph_mutuals):
+            if has_unknown_values_supermatrix(adj0):
+                if verbose > 1:
+                    print('Adding branch 0 candidate')
+                candidates.append(adj0)
+            else:
+                if verbose > 1:
+                    print('Branch 0 yielded compatible graph')
+                solutions.append(adj0)
+        else:
+            if verbose > 1:
+                print('Branch 0 invalid')
+
+        if lambda_compatible_supergraph(adj1, subgraph_mutuals) and mu_compatible_supergraph(adj1, subgraph_mutuals):
+            if has_unknown_values_supermatrix(adj1):
+                if verbose > 1:
+                    print('Adding branch 1 candidate')
+                candidates.append(adj1)
+            else:
+                if verbose > 1:
+                    print('Branch 1 yielded compatible graph')
+                solutions.append(adj1)
+        else:
+            if verbose > 1:
+                print('Branch 1 invalid')
+
+    valid_soln = [s for s in solutions if graph_is_valid(s)]
+    if verbose > 0:
+        print('Reduces to {} valid graphs'.format(len(valid_soln)))
+    return valid_soln
+
+
+def find_valid_supergraphs_v2(seed_matrices,
+                              forced_edges=None,
+                              forced_non_edges=None,
+                              verbose=True):
+
+    templates = [get_supermatrix_template(adj, forced_edges, forced_non_edges)
+                 for adj in seed_matrices]
+    print('{}: {} seed templates generated'.format(dt.now(), len(templates)))
+
+    valid_supergraphs = templates_to_valid_graphs_supergraph(templates)
+    print('{}: {} valid graphs from templates'.format(dt.now(),
+                                                      len(valid_supergraphs)))
+
+    supergraph_reps = reduce_mod_equivalence(valid_supergraphs, verbose)
+    print('{}: Reduced to {} representatives'.format(dt.now(),
+                                                     len(supergraph_reps)))
+    return supergraph_reps
