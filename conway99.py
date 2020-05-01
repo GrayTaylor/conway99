@@ -13,9 +13,7 @@ def get_supermatrix_template(adj, forced_edges=None, forced_non_edges=None):
     order = len(adj) + 1
     supermatrix = np.empty((order, order), dtype='int')
 
-    for i in range(order - 1):
-        for j in range(order - 1):
-            supermatrix[i, j] = adj[i, j]
+    supermatrix[0:order-1, 0:order-1] = adj
 
     first_unsat = 0
     while is_saturated_vertex(first_unsat, adj):
@@ -61,6 +59,17 @@ def num_unknowns(adj):
 
 def has_unknown_values(adj):
     return max([len([x for x in r if x == 2]) for r in adj]) > 0
+
+
+def has_unknown_values_supermatrix(adj):
+    # special case of a template that is a supermatrix of a graph
+    # if unknowns exist, they relate to the new vertex only
+    # so suffices to check final row
+    # More likely to find at end of array, so search in reverse
+    for k in range(len(adj[-1]) - 1, -1, -1):
+        if adj[-1][k] == 2:
+            return True
+    return False
 
 
 def plot_given_edges(adj):
@@ -195,7 +204,7 @@ def templates_to_valid_graphs(seed_templates, verbose=0):
         adj0, adj1 = branches(current_candidate)
 
         if lambda_compatible(adj0) and mu_compatible(adj0):
-            if has_unknown_values(adj0):
+            if has_unknown_values_supermatrix(adj0):
                 if verbose > 1:
                     print('Adding branch 0 candidate')
                 candidates.append(adj0)
@@ -208,7 +217,7 @@ def templates_to_valid_graphs(seed_templates, verbose=0):
                 print('Branch 0 invalid')
 
         if lambda_compatible(adj1) and mu_compatible(adj1):
-            if has_unknown_values(adj1):
+            if has_unknown_values_supermatrix(adj1):
                 if verbose > 1:
                     print('Adding branch 1 candidate')
                 candidates.append(adj1)
@@ -268,7 +277,7 @@ def are_equivalent(mat1, mat2):
 
 def reduce_mod_equivalence_short(candidates, verbose=False):
     # May offer advantages over standard proc if few candidates
-    # As then cost of array list comparison cheaper than 
+    # As then cost of array list comparison cheaper than
     # conversion to tuple for hash lookup
     reps = []
     reduced_reps = []
