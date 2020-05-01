@@ -235,13 +235,6 @@ def template_to_valid_graphs(seed_template, verbose=0):
     return valid_soln
 
 
-def templates_to_valid_graphs(seed_templates, verbose=0):
-    valid_graphs = []
-    for s in seed_templates:
-        valid_graphs.extend(template_to_valid_graphs(s, verbose))
-    return valid_graphs
-
-
 def find_valid_supergraphs(seed_matrices,
                            forced_edges=None,
                            forced_non_edges=None,
@@ -443,3 +436,12 @@ def find_valid_supergraphs_v2(seed_matrices,
     print('{}: Reduced to {} representatives'.format(dt.now(),
                                                      len(supergraph_reps)))
     return supergraph_reps
+
+
+def templates_to_valid_graphs(seed_templates, verbose=0):
+    valid_graphs = []
+    for s in seed_templates:
+        subgraph = s[:-1, :-1]
+        subgraph_mutuals = known_mutuals(subgraph)
+        valid_graphs.extend(template_to_valid_graphs_given_subgraph_mutuals(s, subgraph_mutuals, verbose))
+    return valid_graphs
