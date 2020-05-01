@@ -6,7 +6,7 @@ from datetime import datetime as dt
 # Template building
 
 
-def get_supermatrix_template(adj, forced_edges=None):
+def get_supermatrix_template(adj, forced_edges=None, forced_non_edges=None):
     # Given a graph, return template for a graph with an additional vertex
     # Recognise saturated vertices can't have new neighbours
     # Optionally, also force some edges
@@ -35,6 +35,11 @@ def get_supermatrix_template(adj, forced_edges=None):
         for e in forced_edges:
             supermatrix[e[0], e[1]] = 1
             supermatrix[e[1], e[0]] = 1
+
+    if forced_non_edges is not None:
+        for e in forced_non_edges:
+            supermatrix[e[0], e[1]] = 0
+            supermatrix[e[1], e[0]] = 0
 
     return supermatrix
 
@@ -221,9 +226,12 @@ def templates_to_valid_graphs(seed_templates, verbose=0):
     return valid_soln
 
 
-def find_valid_supergraphs(seed_matrices, forced_edges=None, verbose=True):
+def find_valid_supergraphs(seed_matrices,
+                           forced_edges=None,
+                           forced_non_edges=None,
+                           verbose=True):
 
-    templates = [get_supermatrix_template(adj, forced_edges)
+    templates = [get_supermatrix_template(adj, forced_edges, forced_non_edges)
                  for adj in seed_matrices]
     print('{}: {} seed templates generated'.format(dt.now(), len(templates)))
 
@@ -258,23 +266,10 @@ def are_equivalent(mat1, mat2):
     return np.all(mat1_reduced == mat2_reduced)
 
 
-def reduce_mod_equivalence_old(candidates, verbose=False):
-    worklist = [m for m in candidates]
-    replist = []
-    while len(worklist) > 0:
-        if verbose:
-            print('\t{} candidates, {} representatives'.format(len(worklist),
-                                                               len(replist)))
-        rep = worklist.pop()
-        replist.append(rep)
-        worklist = [m for m in worklist if not are_equivalent(rep, m)]
-    if verbose:
-        print('\t{} candidates, {} representatives'.format(len(worklist),
-                                                           len(replist)))
-    return replist
-
-
-def reduce_mod_equivalence(candidates, verbose=False):
+def reduce_mod_equivalence_short(candidates, verbose=False):
+    # May offer advantages over standard proc if few candidates
+    # As then cost of array list comparison cheaper than 
+    # conversion to tuple for hash lookup
     reps = []
     reduced_reps = []
     for k in range(len(candidates)):
@@ -284,6 +279,23 @@ def reduce_mod_equivalence(candidates, verbose=False):
         cand_reduced = oapackage.transformGraphMatrix(cand, tri)
         if not any(np.array_equal(cand_reduced, c) for c in reduced_reps):
             reduced_reps.append(cand_reduced)
+            reps.append(cand)
+            if verbose:
+                print('\t{} reps for {} candidates'.format(len(reps), k + 1))
+    return reps
+
+
+def reduce_mod_equivalence(candidates, verbose=False):
+    reps = []
+    reduced_reps = {}
+    for k in range(len(candidates)):
+        cand = candidates[k]
+        tr = oapackage.reduceGraphNauty(cand, verbose=0)
+        tri = inverse_permutation(tr)
+        cand_reduced = oapackage.transformGraphMatrix(cand, tri)
+        cand_reduced_list = tuple(map(tuple, cand_reduced))
+        if cand_reduced_list not in reduced_reps:
+            reduced_reps[cand_reduced_list] = 1
             reps.append(cand)
             if verbose:
                 print('\t{} reps for {} candidates'.format(len(reps), k + 1))
