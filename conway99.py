@@ -186,77 +186,6 @@ def branches(adj):
     return b0, b1
 
 
-def template_to_valid_graphs(seed_template, verbose=0):
-    # For each template, populate unknowns with 0/1 values,
-    # Subject to lambda and mu compatibility throughout
-    # Then eliminate graphs that don't meet known adjacency requirements
-    # (this check cannot be performed on templates,
-    # as mutual neighbours not necessarily yet determined)
-
-    candidates = [seed_template]
-    solutions = []
-
-    while len(candidates) > 0:
-        if verbose > 0:
-            print('Currently {} graphs, {} candidates'.format(len(solutions),
-                                                              len(candidates)))
-        current_candidate = candidates.pop()
-        adj0, adj1 = branches(current_candidate)
-
-        if lambda_compatible(adj0) and mu_compatible(adj0):
-            if has_unknown_values_supermatrix(adj0):
-                if verbose > 1:
-                    print('Adding branch 0 candidate')
-                candidates.append(adj0)
-            else:
-                if verbose > 1:
-                    print('Branch 0 yielded compatible graph')
-                solutions.append(adj0)
-        else:
-            if verbose > 1:
-                print('Branch 0 invalid')
-
-        if lambda_compatible(adj1) and mu_compatible(adj1):
-            if has_unknown_values_supermatrix(adj1):
-                if verbose > 1:
-                    print('Adding branch 1 candidate')
-                candidates.append(adj1)
-            else:
-                if verbose > 1:
-                    print('Branch 1 yielded compatible graph')
-                solutions.append(adj1)
-        else:
-            if verbose > 1:
-                print('Branch 1 invalid')
-
-    valid_soln = [s for s in solutions if graph_is_valid(s)]
-    if verbose > 0:
-        print('Reduces to {} valid graphs'.format(len(valid_soln)))
-    return valid_soln
-
-
-def find_valid_supergraphs(seed_matrices,
-                           forced_edges=None,
-                           forced_non_edges=None,
-                           verbose=True):
-
-    valid_supergraphs = []
-
-    for s in seed_matrices:
-        template = get_supermatrix_template(s, forced_edges, forced_non_edges)
-        subgraph_mutuals = known_mutuals(s)
-        valid_supergraphs_of_s = template_to_valid_graphs(template)
-        valid_supergraphs.extend(valid_supergraphs_of_s)
-
-    print('{}: {} valid graphs from templates'.format(dt.now(),
-                                                      len(valid_supergraphs)))
-
-    supergraph_reps = reduce_mod_equivalence(valid_supergraphs, verbose)
-    print('{}: Reduced to {} representatives'.format(dt.now(),
-                                                     len(supergraph_reps)))
-    return supergraph_reps
-
-
 # Isomorphism testing
 
 def inverse_permutation(perm):
@@ -415,10 +344,10 @@ def template_to_valid_graphs_given_subgraph_mutuals(seed_template,
     return valid_soln
 
 
-def find_valid_supergraphs_v2(seed_matrices,
-                              forced_edges=None,
-                              forced_non_edges=None,
-                              verbose=True):
+def find_valid_supergraphs(seed_matrices,
+                           forced_edges=None,
+                           forced_non_edges=None,
+                           verbose=True):
 
     valid_supergraphs = []
     print('{}: Starting'.format(dt.now()))
