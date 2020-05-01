@@ -186,14 +186,14 @@ def branches(adj):
     return b0, b1
 
 
-def templates_to_valid_graphs(seed_templates, verbose=0):
+def template_to_valid_graphs(seed_template, verbose=0):
     # For each template, populate unknowns with 0/1 values,
     # Subject to lambda and mu compatibility throughout
     # Then eliminate graphs that don't meet known adjacency requirements
     # (this check cannot be performed on templates,
     # as mutual neighbours not necessarily yet determined)
 
-    candidates = [a for a in seed_templates]
+    candidates = [seed_template]
     solutions = []
 
     while len(candidates) > 0:
@@ -235,16 +235,26 @@ def templates_to_valid_graphs(seed_templates, verbose=0):
     return valid_soln
 
 
+def templates_to_valid_graphs(seed_templates, verbose=0):
+    valid_graphs = []
+    for s in seed_templates:
+        valid_graphs.extend(template_to_valid_graphs(s, verbose))
+    return valid_graphs
+
+
 def find_valid_supergraphs(seed_matrices,
                            forced_edges=None,
                            forced_non_edges=None,
                            verbose=True):
 
-    templates = [get_supermatrix_template(adj, forced_edges, forced_non_edges)
-                 for adj in seed_matrices]
-    print('{}: {} seed templates generated'.format(dt.now(), len(templates)))
+    valid_supergraphs = []
 
-    valid_supergraphs = templates_to_valid_graphs(templates)
+    for s in seed_matrices:
+        template = get_supermatrix_template(s, forced_edges, forced_non_edges)
+        subgraph_mutuals = known_mutuals(s)
+        valid_supergraphs_of_s = template_to_valid_graphs(template)
+        valid_supergraphs.extend(valid_supergraphs_of_s)
+
     print('{}: {} valid graphs from templates'.format(dt.now(),
                                                       len(valid_supergraphs)))
 
@@ -309,3 +319,16 @@ def reduce_mod_equivalence(candidates, verbose=False):
             if verbose:
                 print('\t{} reps for {} candidates'.format(len(reps), k + 1))
     return reps
+
+
+# Exploit known subgraph during growing
+
+def known_mutuals(adj):
+    order = len(adj)
+    mutuals = np.empty((order, order), dtype='object')
+    for i in range(order):
+        for j in range(i+1, order):
+            mn = mutual_neighbours(i, j, adj)
+            mutuals[i, j] = mn
+            mutuals[j, i] = mn
+    return mutuals
