@@ -267,7 +267,7 @@ def mutual_nhbrs_given_subgraph_mutuals(i, j, adj, subgraph_mutuals):
         return mutuals
 
 
-def lambda_compatible_given_subgraph_mutuals(adj, subgraph_mutuals, lmbda=1):
+def lambda_compatible_from_subgraph_mutuals(adj, subgraph_mutuals, lmbda=1):
     # Compatibility is for a subgraph, so bound rather than equality
     for i in range(len(adj)):
         for j in range(i+1, len(adj)):
@@ -279,7 +279,7 @@ def lambda_compatible_given_subgraph_mutuals(adj, subgraph_mutuals, lmbda=1):
     return True
 
 
-def mu_compatible_given_subgraph_mutuals(adj, subgraph_mutuals, mu=2):
+def mu_compatible_from_subgraph_mutuals(adj, subgraph_mutuals, mu=2):
     # Compatibility is for a subgraph, so bound rather than equality
     for i in range(len(adj)):
         for j in range(i+1, len(adj)):
@@ -291,9 +291,7 @@ def mu_compatible_given_subgraph_mutuals(adj, subgraph_mutuals, mu=2):
     return True
 
 
-def template_to_valid_graphs_given_subgraph_mutuals(seed_template,
-                                                    subgraph_mutuals,
-                                                    verbose=0):
+def template_to_valid_graphs(seed_template, subgraph_mutuals, verbose=0):
     # For each template, populate unknowns with 0/1 values,
     # Subject to lambda and mu compatibility throughout
     # Then eliminate graphs that don't meet known adjacency requirements
@@ -310,8 +308,8 @@ def template_to_valid_graphs_given_subgraph_mutuals(seed_template,
         current_candidate = candidates.pop()
         adj0, adj1 = branches(current_candidate)
 
-        if (lambda_compatible_given_subgraph_mutuals(adj0, subgraph_mutuals)
-            and mu_compatible_given_subgraph_mutuals(adj0, subgraph_mutuals)):
+        if (lambda_compatible_from_subgraph_mutuals(adj0, subgraph_mutuals) and
+                mu_compatible_from_subgraph_mutuals(adj0, subgraph_mutuals)):
             if has_unknown_values_supermatrix(adj0):
                 if verbose > 1:
                     print('Adding branch 0 candidate')
@@ -324,8 +322,8 @@ def template_to_valid_graphs_given_subgraph_mutuals(seed_template,
             if verbose > 1:
                 print('Branch 0 invalid')
 
-        if (lambda_compatible_given_subgraph_mutuals(adj1, subgraph_mutuals)
-            and mu_compatible_given_subgraph_mutuals(adj1, subgraph_mutuals)):
+        if (lambda_compatible_from_subgraph_mutuals(adj1, subgraph_mutuals) and
+                mu_compatible_from_subgraph_mutuals(adj1, subgraph_mutuals)):
             if has_unknown_values_supermatrix(adj1):
                 if verbose > 1:
                     print('Adding branch 1 candidate')
@@ -355,7 +353,8 @@ def find_valid_supergraphs(seed_matrices,
     for s in seed_matrices:
         template = get_supermatrix_template(s, forced_edges, forced_non_edges)
         subgraph_mutuals = known_mutuals(s)
-        valid_supergraphs_of_s = template_to_valid_graphs_given_subgraph_mutuals(template, subgraph_mutuals)
+        valid_supergraphs_of_s = template_to_valid_graphs(template,
+                                                          subgraph_mutuals)
         valid_supergraphs.extend(valid_supergraphs_of_s)
 
     print('{}: {} valid graphs from templates'.format(dt.now(),
@@ -372,5 +371,7 @@ def templates_to_valid_graphs(seed_templates, verbose=0):
     for s in seed_templates:
         subgraph = s[:-1, :-1]
         subgraph_mutuals = known_mutuals(subgraph)
-        valid_graphs.extend(template_to_valid_graphs_given_subgraph_mutuals(s, subgraph_mutuals, verbose))
+        valid_graphs.extend(template_to_valid_graphs(s,
+                                                     subgraph_mutuals,
+                                                     verbose))
     return valid_graphs
