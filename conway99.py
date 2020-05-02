@@ -249,7 +249,7 @@ def known_mutuals(adj):
     order = len(adj)
     mutuals = np.empty((order, order), dtype='object')
     for i in range(order):
-        for j in range(i+1, order):
+        for j in range(i, order):
             mn = mutual_neighbours(i, j, adj)
             mutuals[i, j] = mn
             mutuals[j, i] = mn
@@ -289,6 +289,35 @@ def mu_compatible_from_subgraph_mutuals(adj, subgraph_mutuals, mu=2):
                 if len(nhbrs) > mu:
                     return False
     return True
+
+
+def meets_adj_reqs_from_subgraph_mutuals(adj, subgraph_mutuals,
+                                         lmbda=1, mu=2, debug=False):
+    # where vertices have full degree,
+    # mutual (non)-neighbour conditions can be checked
+    for i in range(len(adj)):
+        if is_saturated_vertex(i, adj):
+            for j in range(len(adj)):
+                m = mutual_nhbrs_given_subgraph_mutuals(i, j, adj,
+                                                        subgraph_mutuals)
+                if adj[i, j] == 1 and len(m) != lmbda:
+                    if debug:
+                        print('Error: Neighbour {} of {} has {} \
+                              mutual neighbours {}'.format(j, i, len(m), m))
+                    return False
+                if i != j and adj[i, j] == 0 and len(m) != mu:
+                    if debug:
+                        print('Error: Non-Neighbour {} of {} has {} \
+                               mutual neighbours {}'.format(j, i, len(m), m))
+                    return False
+    return True
+
+
+def graph_is_valid_from_subgraph_mutuals(adj, subgraph_mutuals):
+    # for proper subgraphs, not templates!
+    return (lambda_compatible_from_subgraph_mutuals(adj, subgraph_mutuals)
+            and mu_compatible_from_subgraph_mutuals(adj, subgraph_mutuals)
+            and meets_adj_reqs_from_subgraph_mutuals(adj, subgraph_mutuals))
 
 
 def template_to_valid_graphs(seed_template, subgraph_mutuals, verbose=0):
@@ -336,7 +365,8 @@ def template_to_valid_graphs(seed_template, subgraph_mutuals, verbose=0):
             if verbose > 1:
                 print('Branch 1 invalid')
 
-    valid_soln = [s for s in solutions if graph_is_valid(s)]
+    valid_soln = [s for s in solutions
+                  if graph_is_valid_from_subgraph_mutuals(s, subgraph_mutuals)]
     if verbose > 0:
         print('Reduces to {} valid graphs'.format(len(valid_soln)))
     return valid_soln
