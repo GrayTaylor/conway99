@@ -344,9 +344,15 @@ def template_to_valid_graphs(seed_template, subgraph_mutuals, verbose=0):
                     print('Adding branch 0 candidate')
                 candidates.append(adj0)
             else:
-                if verbose > 1:
-                    print('Branch 0 yielded compatible graph')
-                solutions.append(adj0)
+                x = graph_is_valid_from_subgraph_mutuals(adj0,
+                                                         subgraph_mutuals)
+                if x:
+                    solutions.append(adj0)
+                    if verbose > 1:
+                        print('Branch 0 yielded valid graph')
+                else:
+                    if verbose > 1:
+                        print('Branch 0 yielded compatible but invalid graph')
         else:
             if verbose > 1:
                 print('Branch 0 invalid')
@@ -358,18 +364,20 @@ def template_to_valid_graphs(seed_template, subgraph_mutuals, verbose=0):
                     print('Adding branch 1 candidate')
                 candidates.append(adj1)
             else:
-                if verbose > 1:
-                    print('Branch 1 yielded compatible graph')
-                solutions.append(adj1)
+                x = graph_is_valid_from_subgraph_mutuals(adj1,
+                                                         subgraph_mutuals)
+                if x:
+                    solutions.append(adj1)
+                    if verbose > 1:
+                        print('Branch 1 yielded valid graph')
+                else:
+                    if verbose > 1:
+                        print('Branch 1 yielded compatible but invalid graph')
         else:
             if verbose > 1:
                 print('Branch 1 invalid')
 
-    valid_soln = [s for s in solutions
-                  if graph_is_valid_from_subgraph_mutuals(s, subgraph_mutuals)]
-    if verbose > 0:
-        print('Reduces to {} valid graphs'.format(len(valid_soln)))
-    return valid_soln
+    return solutions
 
 
 def find_valid_supergraphs(seed_matrices,
