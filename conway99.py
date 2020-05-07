@@ -386,7 +386,7 @@ def find_valid_supergraphs(seed_matrices,
                            verbose=True):
 
     valid_supergraphs = []
-    print('{}: Starting'.format(dt.now()))
+    print('{}: Starting with {} seeds'.format(dt.now(), len(seed_matrices)))
 
     for s in seed_matrices:
         template = get_supermatrix_template(s, forced_edges, forced_non_edges)
@@ -413,3 +413,74 @@ def templates_to_valid_graphs(seed_templates, verbose=0):
                                                      subgraph_mutuals,
                                                      verbose))
     return valid_graphs
+
+
+# 'Greedy' saturation - always look to introduce edges on the
+# highest degree unsaturated vertex, and to construct missing mutuals
+
+def get_supermatrix_template_greedy(adj, max_degree=14):
+    # Given a graph, return template for a graph with an additional vertex
+    # Recognise saturated vertices can't have new neighbours
+    # identify an unsaturated vertex of highest degree,
+    # and a vertex that it requires a mutual nhbr with
+    # set the new vertex to neighbour both
+
+    order = len(adj) + 1
+    supermatrix = np.empty((order, order), dtype='int')
+
+    supermatrix[0:order-1, 0:order-1] = adj
+
+    vd = vertex_degrees(adj)
+    max_unsat = max([d for d in vd if d < max_degree])
+    first_max_unsat = 0
+    while vd[first_max_unsat] != max_unsat:
+        first_max_unsat += 1
+
+    # if vertex already saturated, new vertex can't be a nhbr
+    # our first maximal unsaturated should be forced as a nhbr
+    for i in range(order - 1):
+        if vd[i] >= max_degree:
+            nhbr_i = 0
+        elif i == first_max_unsat:
+            nhbr_i = 1
+        else:
+            nhbr_i = 2
+        supermatrix[order - 1, i] = nhbr_i
+        supermatrix[i, order - 1] = nhbr_i
+
+    # can't self-neighbour
+    supermatrix[order - 1, order - 1] = 0
+
+    # look for a required mutual nhbr
+    req_mutual = 0
+    while (adj[first_max_unsat, req_mutual]
+           + len(mutual_neighbours(first_max_unsat, req_mutual, adj))) >= 2:
+        req_mutual += 1
+        if req_mutual > order - 1:
+            break
+
+    if req_mutual <= order - 1:
+        supermatrix[req_mutual, order - 1] = 1
+        supermatrix[order - 1, req_mutual] = 1
+
+    return supermatrix
+
+
+def find_valid_supergraphs_greedy(seed_matrices, verbose=True):
+    valid_supergraphs = []
+    print('{}: Starting with {} seeds'.format(dt.now(), len(seed_matrices)))
+
+    for s in seed_matrices:
+        template = get_supermatrix_template_greedy(s)
+        subgraph_mutuals = known_mutuals(s)
+        valid_supergraphs_of_s = template_to_valid_graphs(template,
+                                                          subgraph_mutuals)
+        valid_supergraphs.extend(valid_supergraphs_of_s)
+
+    print('{}: {} valid graphs from templates'.format(dt.now(),
+                                                      len(valid_supergraphs)))
+
+    supergraph_reps = reduce_mod_equivalence(valid_supergraphs, verbose)
+    print('{}: Reduced to {} representatives'.format(dt.now(),
+                                                     len(supergraph_reps)))
+    return supergraph_reps
