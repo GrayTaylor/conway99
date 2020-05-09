@@ -6,7 +6,8 @@ from datetime import datetime as dt
 # Template building
 
 
-def get_supermatrix_template(adj, forced_edges=None, forced_non_edges=None):
+def get_supermatrix_template(adj, forced_edges=None, forced_non_edges=None,
+                             max_degree=14):
     # Given a graph, return template for a graph with an additional vertex
     # Recognise saturated vertices can't have new neighbours
     # Optionally, also force some edges
@@ -15,18 +16,18 @@ def get_supermatrix_template(adj, forced_edges=None, forced_non_edges=None):
 
     supermatrix[0:order-1, 0:order-1] = adj
 
-    first_unsat = 0
-    while is_saturated_vertex(first_unsat, adj):
-        first_unsat += 1
+    vd = vertex_degrees(adj)
 
-    for i in range(first_unsat):
-        supermatrix[order - 1, i] = 0
-        supermatrix[i, order - 1] = 0
+    # if vertex already saturated, new vertex can't be a nhbr
+    for i in range(order - 1):
+        if vd[i] >= max_degree:
+            nhbr_i = 0
+        else:
+            nhbr_i = 2
+        supermatrix[order - 1, i] = nhbr_i
+        supermatrix[i, order - 1] = nhbr_i
 
-    for i in range(first_unsat, order - 1):
-        supermatrix[order - 1, i] = 2
-        supermatrix[i, order - 1] = 2
-
+    # can't self-neighbour
     supermatrix[order - 1, order - 1] = 0
 
     if forced_edges is not None:
@@ -159,11 +160,11 @@ def meets_adjacency_requirements(adj, lmbda=1, mu=2, debug=False):
     return True
 
 
-def graph_is_valid(adj):
+def graph_is_valid(adj, lmbda=1, mu=2):
     # for proper subgraphs, not templates!
-    return (lambda_compatible(adj)
-            and mu_compatible(adj)
-            and meets_adjacency_requirements(adj))
+    return (lambda_compatible(adj, lmbda)
+            and mu_compatible(adj, mu)
+            and meets_adjacency_requirements(adj, lmbda, mu))
 
 
 # Branch and bound on templates
@@ -229,8 +230,7 @@ def reduce_mod_equivalence_short(candidates, verbose=False):
 def reduce_mod_equivalence(candidates, verbose=False):
     reps = []
     reduced_reps = {}
-    for k in range(len(candidates)):
-        cand = candidates[k]
+    for k, cand in enumerate(candidates):
         tr = oapackage.reduceGraphNauty(cand, verbose=0)
         tri = inverse_permutation(tr)
         cand_reduced = oapackage.transformGraphMatrix(cand, tri)
@@ -239,7 +239,7 @@ def reduce_mod_equivalence(candidates, verbose=False):
             reduced_reps[cand_reduced_list] = 1
             reps.append(cand)
             if verbose:
-                print('\t{} reps for {} candidates'.format(len(reps), k + 1))
+                print('\t{} reps from {} candidates'.format(len(reps), k + 1))
     return reps
 
 
@@ -313,14 +313,18 @@ def meets_adj_reqs_from_subgraph_mutuals(adj, subgraph_mutuals,
     return True
 
 
-def graph_is_valid_from_subgraph_mutuals(adj, subgraph_mutuals):
+def graph_is_valid_from_subgraph_mutuals(adj, subgraph_mutuals,
+                                         lmbda=1, mu=2, max_degree=14):
     # for proper subgraphs, not templates!
-    return (lambda_compatible_from_subgraph_mutuals(adj, subgraph_mutuals)
-            and mu_compatible_from_subgraph_mutuals(adj, subgraph_mutuals)
-            and meets_adj_reqs_from_subgraph_mutuals(adj, subgraph_mutuals))
+    return (lambda_compatible_from_subgraph_mutuals(adj, subgraph_mutuals,
+                                                    lmbda)
+            and mu_compatible_from_subgraph_mutuals(adj, subgraph_mutuals, mu)
+            and meets_adj_reqs_from_subgraph_mutuals(adj, subgraph_mutuals,
+                                                     lmbda, mu, max_degree))
 
 
-def template_to_valid_graphs(seed_template, subgraph_mutuals, verbose=0):
+def template_to_valid_graphs(seed_template, subgraph_mutuals, verbose=0,
+                             lmbda=1, mu=2, max_degree=14):
     # For each template, populate unknowns with 0/1 values,
     # Subject to lambda and mu compatibility throughout
     # Then eliminate graphs that don't meet known adjacency requirements
@@ -337,15 +341,24 @@ def template_to_valid_graphs(seed_template, subgraph_mutuals, verbose=0):
         current_candidate = candidates.pop()
         adj0, adj1 = branches(current_candidate)
 
-        if (lambda_compatible_from_subgraph_mutuals(adj0, subgraph_mutuals) and
-                mu_compatible_from_subgraph_mutuals(adj0, subgraph_mutuals)):
+        # Branch with 0
+        lmbda_comp0 = lambda_compatible_from_subgraph_mutuals(adj0,
+                                                              subgraph_mutuals,
+                                                              lmbda)
+        mu_comp0 = mu_compatible_from_subgraph_mutuals(adj0,
+                                                       subgraph_mutuals,
+                                                       mu)
+
+        if lmbda_comp0 and mu_comp0:
             if has_unknown_values_supermatrix(adj0):
                 if verbose > 1:
                     print('Adding branch 0 candidate')
                 candidates.append(adj0)
             else:
                 x = graph_is_valid_from_subgraph_mutuals(adj0,
-                                                         subgraph_mutuals)
+                                                         subgraph_mutuals,
+                                                         lmbda, mu,
+                                                         max_degree)
                 if x:
                     solutions.append(adj0)
                     if verbose > 1:
@@ -357,15 +370,24 @@ def template_to_valid_graphs(seed_template, subgraph_mutuals, verbose=0):
             if verbose > 1:
                 print('Branch 0 invalid')
 
-        if (lambda_compatible_from_subgraph_mutuals(adj1, subgraph_mutuals) and
-                mu_compatible_from_subgraph_mutuals(adj1, subgraph_mutuals)):
+        # Branch with 1
+        lmbda_comp1 = lambda_compatible_from_subgraph_mutuals(adj1,
+                                                              subgraph_mutuals,
+                                                              lmbda)
+        mu_comp1 = mu_compatible_from_subgraph_mutuals(adj1,
+                                                       subgraph_mutuals,
+                                                       mu)
+
+        if lmbda_comp1 and mu_comp1:
             if has_unknown_values_supermatrix(adj1):
                 if verbose > 1:
                     print('Adding branch 1 candidate')
                 candidates.append(adj1)
             else:
                 x = graph_is_valid_from_subgraph_mutuals(adj1,
-                                                         subgraph_mutuals)
+                                                         subgraph_mutuals,
+                                                         lmbda, mu,
+                                                         max_degree)
                 if x:
                     solutions.append(adj1)
                     if verbose > 1:
@@ -383,16 +405,20 @@ def template_to_valid_graphs(seed_template, subgraph_mutuals, verbose=0):
 def find_valid_supergraphs(seed_matrices,
                            forced_edges=None,
                            forced_non_edges=None,
-                           verbose=True):
+                           verbose=True,
+                           lmbda=1, mu=2, max_degree=14):
 
     valid_supergraphs = []
     print('{}: Starting with {} seeds'.format(dt.now(), len(seed_matrices)))
 
     for s in seed_matrices:
-        template = get_supermatrix_template(s, forced_edges, forced_non_edges)
+        template = get_supermatrix_template(s, forced_edges, forced_non_edges,
+                                            max_degree)
         subgraph_mutuals = known_mutuals(s)
         valid_supergraphs_of_s = template_to_valid_graphs(template,
-                                                          subgraph_mutuals)
+                                                          subgraph_mutuals,
+                                                          lmbda, mu,
+                                                          max_degree)
         valid_supergraphs.extend(valid_supergraphs_of_s)
 
     print('{}: {} valid graphs from templates'.format(dt.now(),
@@ -404,14 +430,15 @@ def find_valid_supergraphs(seed_matrices,
     return supergraph_reps
 
 
-def templates_to_valid_graphs(seed_templates, verbose=0):
+def templates_to_valid_graphs(seed_templates, verbose=0,
+                              lmbda=1, mu=2, max_degree=14):
     valid_graphs = []
     for s in seed_templates:
         subgraph = s[:-1, :-1]
         subgraph_mutuals = known_mutuals(subgraph)
-        valid_graphs.extend(template_to_valid_graphs(s,
-                                                     subgraph_mutuals,
-                                                     verbose))
+        valid_graphs.extend(template_to_valid_graphs(s, subgraph_mutuals,
+                                                     verbose,
+                                                     lmbda, mu, max_degree))
     return valid_graphs
 
 
