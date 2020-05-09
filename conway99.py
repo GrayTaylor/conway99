@@ -140,11 +140,12 @@ def mu_compatible(adj, mu=2):
     return True
 
 
-def meets_adjacency_requirements(adj, lmbda=1, mu=2, debug=False):
+def meets_adjacency_requirements(adj, lmbda=1, mu=2, max_degree=14,
+                                 debug=False):
     # where vertices have full degree,
     # mutual (non)-neighbour conditions can be checked
     for i in range(len(adj)):
-        if is_saturated_vertex(i, adj):
+        if is_saturated_vertex(i, adj, max_degree):
             for j in range(len(adj)):
                 m = mutual_neighbours(i, j, adj)
                 if adj[i, j] == 1 and len(m) != lmbda:
@@ -160,11 +161,11 @@ def meets_adjacency_requirements(adj, lmbda=1, mu=2, debug=False):
     return True
 
 
-def graph_is_valid(adj, lmbda=1, mu=2):
+def graph_is_valid(adj, lmbda=1, mu=2, max_degree=14):
     # for proper subgraphs, not templates!
     return (lambda_compatible(adj, lmbda)
             and mu_compatible(adj, mu)
-            and meets_adjacency_requirements(adj, lmbda, mu))
+            and meets_adjacency_requirements(adj, lmbda, mu, max_degree))
 
 
 # Branch and bound on templates
@@ -292,7 +293,8 @@ def mu_compatible_from_subgraph_mutuals(adj, subgraph_mutuals, mu=2):
 
 
 def meets_adj_reqs_from_subgraph_mutuals(adj, subgraph_mutuals,
-                                         lmbda=1, mu=2, debug=False):
+                                         lmbda=1, mu=2, max_degree=14,
+                                         debug=False):
     # where vertices have full degree,
     # mutual (non)-neighbour conditions can be checked
     for i in range(len(adj)):
@@ -417,6 +419,7 @@ def find_valid_supergraphs(seed_matrices,
         subgraph_mutuals = known_mutuals(s)
         valid_supergraphs_of_s = template_to_valid_graphs(template,
                                                           subgraph_mutuals,
+                                                          verbose,
                                                           lmbda, mu,
                                                           max_degree)
         valid_supergraphs.extend(valid_supergraphs_of_s)
@@ -445,7 +448,7 @@ def templates_to_valid_graphs(seed_templates, verbose=0,
 # 'Greedy' saturation - always look to introduce edges on the
 # highest degree unsaturated vertex, and to construct missing mutuals
 
-def get_supermatrix_template_greedy(adj, max_degree=14):
+def get_supermatrix_template_greedy(adj, lmbda=1, mu=2, max_degree=14):
     # Given a graph, return template for a graph with an additional vertex
     # Recognise saturated vertices can't have new neighbours
     # identify an unsaturated vertex of highest degree,
@@ -478,14 +481,20 @@ def get_supermatrix_template_greedy(adj, max_degree=14):
     # can't self-neighbour
     supermatrix[order - 1, order - 1] = 0
 
-    # look for a required mutual nhbr
+    # identify lowest label vertex that requires a mutual with first max unsat
     req_mutual = 0
-    while (adj[first_max_unsat, req_mutual]
-           + len(mutual_neighbours(first_max_unsat, req_mutual, adj))) >= 2:
-        req_mutual += 1
+    while True:
+        is_nhbr = adj[first_max_unsat, req_mutual]
+        num_mutuals = len(mutual_neighbours(first_max_unsat, req_mutual, adj))
+        if is_nhbr and num_mutuals < lmbda:
+            break
+        if not(is_nhbr) and num_mutuals < mu:
+            break
         if req_mutual > order - 1:
             break
+        req_mutual += 1
 
+    # assuming the above found such a vertex, force it to be a nhbr
     if req_mutual <= order - 1:
         supermatrix[req_mutual, order - 1] = 1
         supermatrix[order - 1, req_mutual] = 1
@@ -493,7 +502,8 @@ def get_supermatrix_template_greedy(adj, max_degree=14):
     return supermatrix
 
 
-def find_valid_supergraphs_greedy(seed_matrices, verbose=True):
+def find_valid_supergraphs_greedy(seed_matrices, verbose=True,
+                                  lmbda=1, mu=2, max_degree=14):
     valid_supergraphs = []
     print('{}: Starting with {} seeds'.format(dt.now(), len(seed_matrices)))
 
@@ -501,7 +511,10 @@ def find_valid_supergraphs_greedy(seed_matrices, verbose=True):
         template = get_supermatrix_template_greedy(s)
         subgraph_mutuals = known_mutuals(s)
         valid_supergraphs_of_s = template_to_valid_graphs(template,
-                                                          subgraph_mutuals)
+                                                          subgraph_mutuals,
+                                                          verbose,
+                                                          lmbda, mu,
+                                                          max_degree)
         valid_supergraphs.extend(valid_supergraphs_of_s)
 
     print('{}: {} valid graphs from templates'.format(dt.now(),
