@@ -483,7 +483,7 @@ def get_supermatrix_template_greedy(adj, lmbda=1, mu=2, max_degree=14):
 
     # identify lowest label vertex that requires a mutual with first max unsat
     req_mutual = 0
-    while True:
+    while req_mutual < order - 1:
         distinct = (req_mutual != first_max_unsat)
         is_nhbr = adj[first_max_unsat, req_mutual]
         num_mutuals = len(mutual_neighbours(first_max_unsat, req_mutual, adj))
@@ -492,12 +492,10 @@ def get_supermatrix_template_greedy(adj, lmbda=1, mu=2, max_degree=14):
             break
         if distinct and not(is_nhbr) and num_mutuals < mu:
             break
-        if req_mutual > order - 1:
-            break
         req_mutual += 1
 
     # assuming the above found such a vertex, force it to be a nhbr
-    if req_mutual <= order - 1:
+    if req_mutual < order - 1:
         supermatrix[req_mutual, order - 1] = 1
         supermatrix[order - 1, req_mutual] = 1
 
