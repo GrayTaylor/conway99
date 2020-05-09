@@ -484,11 +484,13 @@ def get_supermatrix_template_greedy(adj, lmbda=1, mu=2, max_degree=14):
     # identify lowest label vertex that requires a mutual with first max unsat
     req_mutual = 0
     while True:
+        distinct = (req_mutual != first_max_unsat)
         is_nhbr = adj[first_max_unsat, req_mutual]
         num_mutuals = len(mutual_neighbours(first_max_unsat, req_mutual, adj))
-        if is_nhbr and num_mutuals < lmbda:
+
+        if distinct and is_nhbr and num_mutuals < lmbda:
             break
-        if not(is_nhbr) and num_mutuals < mu:
+        if distinct and not(is_nhbr) and num_mutuals < mu:
             break
         if req_mutual > order - 1:
             break
@@ -508,7 +510,7 @@ def find_valid_supergraphs_greedy(seed_matrices, verbose=True,
     print('{}: Starting with {} seeds'.format(dt.now(), len(seed_matrices)))
 
     for s in seed_matrices:
-        template = get_supermatrix_template_greedy(s)
+        template = get_supermatrix_template_greedy(s, lmbda, mu, max_degree)
         subgraph_mutuals = known_mutuals(s)
         valid_supergraphs_of_s = template_to_valid_graphs(template,
                                                           subgraph_mutuals,
