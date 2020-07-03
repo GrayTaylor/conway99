@@ -73,7 +73,7 @@ def has_unknown_values_supermatrix(adj):
     return False
 
 
-def plot_given_edges(adj):
+def graph_from_mat(adj):
     order = len(adj)
     A = np.empty((order, order), dtype='int')
     for i in range(order):
@@ -83,6 +83,11 @@ def plot_given_edges(adj):
             else:
                 A[i, j] = 0
     G = nx.from_numpy_matrix(A)
+    return G
+
+
+def plot_given_edges(adj):
+    G = graph_from_mat(adj)
     nx.draw(G, with_labels=True)
 
 
