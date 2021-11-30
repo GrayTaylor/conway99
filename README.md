@@ -1,7 +1,7 @@
 # conway99
 Assorted python code for working with strongly regular graphs, specfically for investigating subgraphs of Conway's 99-graph, an srg(99,14,1,2) - if such a thing exists! 
 
-The useful result here is a classification of the possible subgraphs consisting of [two adjacent vertices and their combined neighbourhoods](/"Two adjacent vertices and their combined neighbourhoods.ipynb"); details on how that works (and what some of the other notebooks attempt to do) are in [this blog post](https://maths.straylight.co.uk/archives/1330). Earlier posts describe [the Conway 99-graph problem](https://maths.straylight.co.uk/archives/1299) and some constraints such a graph [would have to satisfy](https://maths.straylight.co.uk/archives/1315).
+The useful result here is a classification of the possible subgraphs consisting of two adjacent vertices and their combined neighbourhoods; details on how that works (and what some of the other notebooks attempt to do) are in [this blog post](https://maths.straylight.co.uk/archives/1330). Earlier posts describe [the Conway 99-graph problem](https://maths.straylight.co.uk/archives/1299) and some constraints such a graph [would have to satisfy](https://maths.straylight.co.uk/archives/1315).
 
 For isomorphism testing I made use of Nauty via [OApackage](https://github.com/eendebakpt/oapackage):
 
